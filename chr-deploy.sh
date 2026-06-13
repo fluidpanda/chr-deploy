@@ -2,7 +2,7 @@
 # chr-install-efi.sh — download, convert to UEFI-bootable, and dd MikroTik CHR
 # Usage: sudo ./chr-install-efi.sh <target_disk> [--version X.Y.Z] [--hybrid-mbr]
 #
-# Dependencies: curl unzip qemu-utils dosfstools rsync parted
+# Dependencies: curl unzip qemu-utils dosfstools rsync
 #               (optional) gdisk — only needed with --hybrid-mbr
 #
 # --version X.Y.Z: install a specific version instead of latest stable.
@@ -84,10 +84,10 @@ done
 [[ -n "$TARGET" ]] || {
     echo "Usage: sudo $0 <target_disk> [--version X.Y.Z] [--workdir /path] [--hybrid-mbr]"
     echo "  Examples:"
-    echo "    sudo $0 /dev/sda"
-    echo "    sudo $0 /dev/sda --version 7.21.4   # specific / longterm version"
-    echo "    sudo $0 /dev/sda --workdir /mnt/data # custom workdir (~500 MB needed)"
-    echo "    sudo $0 /dev/sda --hybrid-mbr        # BIOS + UEFI hybrid boot"
+    echo "    sudo $0 /dev/vda"
+    echo "    sudo $0 /dev/vda --version 7.21.4   # specific / longterm version"
+    echo "    sudo $0 /dev/vda --workdir /mnt/data # custom workdir (~500 MB needed)"
+    echo "    sudo $0 /dev/vda --hybrid-mbr        # BIOS + UEFI hybrid boot"
     exit 1
 }
 
@@ -108,13 +108,13 @@ if grep -q "^${TARGET}" /proc/mounts 2>/dev/null; then
     echo ""
 fi
 
-need curl   "curl"
-need unzip  "unzip"
-need qemu-img  "qemu-utils"
-need qemu-nbd  "qemu-utils"
-need rsync  "rsync"
+need curl "curl"
+need unzip "unzip"
+need qemu-img "qemu-utils"
+need qemu-nbd "qemu-utils"
+need rsync "rsync"
 need mkfs.fat "dosfstools"
-need parted   "parted"
+need sgdisk "gdisk"
 
 if $HYBRID_MBR; then
     need gdisk "gdisk"
@@ -251,21 +251,12 @@ info "Patching EFI boot partition"
 log "Formatting ${NBD_EFI}p1 as FAT (was ext2)..."
 mkfs.fat "${NBD_EFI}p1"
 
-log "Setting GPT partition type to EF00 (EFI System Partition)..."
-parted -s "${NBD_EFI}" set 1 esp on
-
 log "Syncing boot files from original to EFI image..."
 mkdir -p "$MNT_BIOS" "$MNT_EFI"
 mount "${NBD_BIOS}p1" "$MNT_BIOS"
 mount "${NBD_EFI}p1"  "$MNT_EFI"
 
-log "Contents of source (ext2):"
-find "$MNT_BIOS" | sort
-
 rsync -a "$MNT_BIOS/" "$MNT_EFI/"
-
-log "Contents of destination (FAT):"
-find "$MNT_EFI" | sort
 
 umount "$MNT_BIOS"
 umount "$MNT_EFI"
@@ -333,6 +324,9 @@ log "Running dd..."
 dd if=chr-efi.img of="$TARGET" bs=4M status=progress conv=fsync
 
 sync
+
+log "Relocating GPT backup header to end of disk..."
+sgdisk -e "$TARGET"
 
 # ── done ──────────────────────────────────────────────────────────────────────
 
