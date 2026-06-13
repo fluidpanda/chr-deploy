@@ -43,6 +43,9 @@ jobs:
     if: needs.check.outputs.should_build == 'true'
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Install dependencies
         run: |
           sudo apt-get update -q
@@ -101,12 +104,20 @@ jobs:
           zip "chr-efi-$VERSION.img.zip" chr-efi.img
           rm chr-efi.img
 
+      - name: Create git tag
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$VERSION"
+          git push origin "$VERSION"
+
       - name: Publish release
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ needs.check.outputs.version }}
           name: ${{ needs.check.outputs.version }}
-          commit: main
           allowUpdates: false
           artifacts: chr-efi-${{ needs.check.outputs.version }}.img.zip
           body: |
