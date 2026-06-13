@@ -83,6 +83,7 @@ done
 
 [[ -n "$TARGET" ]] || {
     echo "Usage: sudo $0 <target_disk> [--version X.Y.Z] [--workdir /path] [--hybrid-mbr]"
+    echo "  Depends: curl, unzip, qemu-utils, rsync, dosfstools, gdisk"
     echo "  Examples:"
     echo "    sudo $0 /dev/vda"
     echo "    sudo $0 /dev/vda --version 7.21.4   # specific / longterm version"
