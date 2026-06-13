@@ -98,9 +98,6 @@ jobs:
           qemu-img convert -f qcow2 -O raw chr-efi.qcow2 chr-efi.img
           rm chr-bios.qcow2 chr-efi.qcow2
 
-          # fix GPT backup header location
-          sudo sgdisk -e chr-efi.img
-
           zip "chr-efi-$VERSION.img.zip" chr-efi.img
           rm chr-efi.img
 
