@@ -49,6 +49,11 @@ info "Preflight checks"
 [[ $EUID -eq 0 ]] || die "Must run as root"
 [[ -b "$TARGET" ]] || die "Not a block device: $TARGET"
 
+if grep -q "^${TARGET}" /proc/mounts 2>/dev/null; then
+    die "$TARGET has mounted partitions. Run the script from a live ISO, not from a running system. \
+    If you run script on mounted partitions all installation will fail brutally."
+fi
+
 need curl "curl"
 need unzip "unzip"
 
