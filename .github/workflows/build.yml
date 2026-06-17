@@ -19,6 +19,7 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
       should_build: ${{ steps.version.outputs.should_build }}
+      dns_resolved: ${{ steps.dns.outputs.resolved }}
     steps:
       - name: Get latest RouterOS stable version
         id: version
@@ -39,11 +40,28 @@ jobs:
             echo "should_build=true" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Check DNS resolution
+        id: dns
+        run: |
+          RESOLVED=false
+          for i in 1 2 3 4 5; do
+            if getent hosts download.mikrotik.com >/dev/null 2>&1; then
+              RESOLVED=true
+              break
+            fi
+            echo "download.mikrotik.com did not resolve (attempt $i/5), retrying in 10s..."
+            sleep 10
+          done
+          echo "resolved=$RESOLVED" >> "$GITHUB_OUTPUT"
+          if [[ "$RESOLVED" == "false" ]]; then
+            echo "::warning::download.mikrotik.com could not be resolved after 5 attempts. Skipping this run — the next scheduled run will retry."
+          fi
+
   build:
     name: Build ${{ needs.check.outputs.version }}
     runs-on: ubuntu-latest
     needs: check
-    if: needs.check.outputs.should_build == 'true'
+    if: needs.check.outputs.should_build == 'true' && needs.check.outputs.dns_resolved == 'true'
 
     steps:
       - name: Checkout
@@ -61,10 +79,10 @@ jobs:
         env:
           VERSION: ${{ needs.check.outputs.version }}
         run: |
-          curl -fL \
+          curl -4 -fL \
             --connect-timeout 30 \
-            --retry 300 \
-            --retry-delay 5 \
+            --retry 5 \
+            --retry-delay 10 \
             -o chr.img.zip \
             "https://download.mikrotik.com/routeros/$VERSION/chr-$VERSION.img.zip"
           unzip -q chr.img.zip
