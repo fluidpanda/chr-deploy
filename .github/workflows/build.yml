@@ -61,7 +61,10 @@ jobs:
         env:
           VERSION: ${{ needs.check.outputs.version }}
         run: |
-          curl -fL --retry 3 \
+          curl -fL \ 
+            --connect-timeout 30 \
+            --retry 300 \
+            --retry-delay 5 \
             -o chr.img.zip \
             "https://download.mikrotik.com/routeros/$VERSION/chr-$VERSION.img.zip"
           unzip -q chr.img.zip
