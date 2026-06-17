@@ -61,7 +61,7 @@ jobs:
         env:
           VERSION: ${{ needs.check.outputs.version }}
         run: |
-          curl -fL \ 
+          curl \ 
             --connect-timeout 30 \
             --retry 300 \
             --retry-delay 5 \
