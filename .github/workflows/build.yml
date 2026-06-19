@@ -19,13 +19,19 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
       should_build: ${{ steps.version.outputs.should_build }}
-      dns_resolved: ${{ steps.dns.outputs.resolved }}
     steps:
       - name: Get latest RouterOS stable version
         id: version
         run: |
           VERSION=$(curl -fsSL https://upgrade.mikrotik.com/routeros/NEWESTa7.stable | awk '{print $1}')
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          # if VERSION is empty, mikrotik.com is unreachable - skip this run
+          if [[ -z "$VERSION" ]]; then
+            echo "::warning::Could not reach upgrade.mikrotik.com - skipping this run, the next scheduled run will retry."
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
           # check if a release for this version already exists
           HTTP=$(curl -o /dev/null -s -w "%{http_code}" \
@@ -35,33 +41,17 @@ jobs:
           if [[ "$HTTP" == "200" ]]; then
             echo "Release $VERSION already exists, skipping build."
             echo "should_build=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "New version: $VERSION"
-            echo "should_build=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
 
-      - name: Check DNS resolution
-        id: dns
-        run: |
-          RESOLVED=false
-          for i in 1 2 3 4 5; do
-            if getent hosts download.mikrotik.com >/dev/null 2>&1; then
-              RESOLVED=true
-              break
-            fi
-            echo "download.mikrotik.com did not resolve (attempt $i/5), retrying in 10s..."
-            sleep 10
-          done
-          echo "resolved=$RESOLVED" >> "$GITHUB_OUTPUT"
-          if [[ "$RESOLVED" == "false" ]]; then
-            echo "::warning::download.mikrotik.com could not be resolved after 5 attempts. Skipping this run — the next scheduled run will retry."
-          fi
+          echo "New version: $VERSION"
+          echo "should_build=true" >> "$GITHUB_OUTPUT"
 
   build:
     name: Build ${{ needs.check.outputs.version }}
     runs-on: ubuntu-latest
     needs: check
-    if: needs.check.outputs.should_build == 'true' && needs.check.outputs.dns_resolved == 'true'
+    if: needs.check.outputs.should_build == 'true'
 
     steps:
       - name: Checkout
