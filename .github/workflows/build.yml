@@ -23,12 +23,13 @@ jobs:
       - name: Get latest RouterOS stable version
         id: version
         run: |
-          VERSION=$(curl -fsSL https://upgrade.mikrotik.com/routeros/NEWESTa7.stable | awk '{print $1}')
+          VERSION=$(curl -fsSL https://cdn.mikrotik.com/routeros/latest-long-term.rss | \
+            grep -o 'v=7\.[0-9.]*' | head -1 | cut -d= -f2)
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
           # if VERSION is empty, mikrotik.com is unreachable - skip this run
           if [[ -z "$VERSION" ]]; then
-            echo "::warning::Could not reach upgrade.mikrotik.com - skipping this run, the next scheduled run will retry."
+            echo "::warning::Could not reach cdn.mikrotik.com - skipping this run, the next scheduled run will retry."
             echo "should_build=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
